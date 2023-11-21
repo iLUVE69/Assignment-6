@@ -3,12 +3,13 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 # Link lengths
-L1 = L2 = L3 = 1.0  
+L1 = L2 = L3 = 1.0 
 
 radius = 1.5  
-center_x = center_y = 0  
+center_x = center_y = 0 
 
-t = np.linspace(0, 2 * np.pi, 1000)  # 100 points for circle interpolation
+# Desired circle trajectory
+t = np.linspace(0, 2 * np.pi, 500)  
 circle_x = center_x + radius * np.cos(t)
 circle_y = center_y + radius * np.sin(t)
 
@@ -18,8 +19,8 @@ def forward_kinematics(theta1, theta2, theta3):
     y = L1 * np.sin(theta1) + L2 * np.sin(theta1 + theta2) + L3 * np.sin(theta1 + theta2 + theta3)
     return x, y
 
-# Inverse kinematics function
-def numerical_inverse_kinematics(x, y, theta1=0.01, theta2=0.01, theta3=0.01, iterations=1000, tolerance=1e-6):
+# Numerical inverse kinematics function (simple iterative method)
+def numerical_inverse_kinematics(x, y, theta1=0.1, theta2=0.1, theta3=0.1, iterations=1000, tolerance=1e-6):
     for _ in range(iterations):
         x_calc, y_calc = forward_kinematics(theta1, theta2, theta3)
         error_x = x - x_calc
@@ -40,33 +41,39 @@ def numerical_inverse_kinematics(x, y, theta1=0.01, theta2=0.01, theta3=0.01, it
             break
         
         J = np.array([[J11, J12, J13], [J21, J22, J23]])
-        delta_theta = np.linalg.pinv(J) @ np.array([error_x, error_y]) # Pseudo-inverse of J
+        delta_theta = np.linalg.pinv(J) @ np.array([error_x, error_y])  
+
         theta1 += delta_theta[0]
         theta2 += delta_theta[1]
         theta3 += delta_theta[2]
 
     return theta1, theta2, theta3
 
+
 fig, ax = plt.subplots()
 line, = ax.plot([], [], 'bo-')
-ax.set_xlim(-3, 3)  
-ax.set_ylim(-3, 3)  
+link1, = ax.plot([], [], 'r-')
+link2, = ax.plot([], [], 'g-')
+ax.set_xlim(-3, 3) 
+ax.set_ylim(-3, 3) 
 
 def update(frame):
     x_target, y_target = circle_x[frame], circle_y[frame]
     theta1, theta2, theta3 = numerical_inverse_kinematics(x_target, y_target)
     x, y = forward_kinematics(theta1, theta2, theta3)
-    line.set_data([0, L1 * np.cos(theta1), x], [0, L1 * np.sin(theta1), y])
-    return line,
+    line.set_data([0, L1 * np.cos(theta1), L1 * np.cos(theta1) + L2 * np.cos(theta1 + theta2), x],
+                  [0, L1 * np.sin(theta1), L1 * np.sin(theta1) + L2 * np.sin(theta1 + theta2), y])
+    link1.set_data([0, L1 * np.cos(theta1)], [0, L1 * np.sin(theta1)])
+    link2.set_data([L1 * np.cos(theta1), L1 * np.cos(theta1) + L2 * np.cos(theta1 + theta2)],
+                   [L1 * np.sin(theta1), L1 * np.sin(theta1) + L2 * np.sin(theta1 + theta2)])
+    return line, link1, link2
 
 # Create animation
 ani = FuncAnimation(fig, update, frames=len(circle_x), interval=50, blit=True)
-
-plt.title('3R Planar Manipulator Tracing a Circle')
+plt.title('3R Planar Manipulator Tracing a Circle with Numerical Inverse Kinematics')
 plt.xlabel('X-axis')
 plt.ylabel('Y-axis')
 plt.grid(True)
+
+# Display the animation
 plt.show()
-
-
-
